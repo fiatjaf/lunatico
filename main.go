@@ -12,13 +12,39 @@ func main() {
 	L := lua.NewState()
 	L.OpenLibs()
 
-	PushAny(L, fmt.Printf)
-	L.SetGlobal("fn")
+	var value interface{} = map[string]interface{}{
+		"x": map[string]interface{}{
+			"y": 2,
+		},
+	}
 
-	log.Print(L.DoString(`fn('aaa%s', 'pluck')`))
+	SetGlobals(L, map[string]interface{}{
+		"value":        value,
+		"getvalueback": func(v interface{}) { value = v },
+	})
+
+	log.Print(L.DoString(`
+value.x.y = 3
+local z = value.x.z or {}
+value.x.z = z
+z.m = 'alskndalsdn'
+local m = value.m or {}
+value.m = m
+m.z = {1,2,3}
+getvalueback(value)
+    `))
+
+	fmt.Println(value)
 }
 
 // utils
+func SetGlobals(L *lua.State, globals map[string]interface{}) {
+	for k, v := range globals {
+		PushAny(L, v)
+		L.SetGlobal(k)
+	}
+}
+
 func GetFullStack(L *lua.State) []interface{} {
 	tip := L.GetTop()
 	values := make([]interface{}, tip)
@@ -27,16 +53,6 @@ func GetFullStack(L *lua.State) []interface{} {
 		values[i-1] = v
 	}
 	return values
-}
-
-func printStackTypes(L *lua.State) {
-	tip := L.GetTop()
-	values := make([]interface{}, tip)
-	for i := 1; i <= tip; i++ {
-		v := L.Type(i)
-		values[i-1] = v
-	}
-	fmt.Println(values...)
 }
 
 // read stuff

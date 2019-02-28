@@ -2,30 +2,20 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/aarzilli/golua/lua"
-	"github.com/kr/pretty"
 )
 
 func main() {
 	L := lua.NewState()
 	L.OpenLibs()
 
-	PushAny(L, map[string]string{"x": "x", "y": "y", "z": "z"})
-	PushAny(L, []interface{}{1, true, false, nil, "weq"})
-	PushAny(L, []interface{}{
-		"another-item1",
-		"another-item2",
-		map[string]string{"xxx": "vxxx", "yyy": "vyyy", "zzz": "vzzz"},
-		map[int]bool{7: true, 8: false},
-		map[string]interface{}{
-			"key1": 777777777,
-			"key2": []interface{}{1, 2, 3, "sete"},
-		},
-	})
+	PushAny(L, fmt.Printf)
+	L.SetGlobal("fn")
 
-	pretty.Log(GetFullStack(L))
+	log.Print(L.DoString(`fn('aaa%s', 'pluck')`))
 }
 
 // utils
@@ -168,6 +158,22 @@ func PushAny(L *lua.State, ival interface{}) {
 			m[fmt.Sprint(key)] = rv.MapIndex(key).Interface()
 		}
 		PushMap(L, m)
+	case reflect.Func:
+		L.PushGoFunction(func(L *lua.State) int {
+			var args []reflect.Value
+			for i := 1; !L.IsNone(i); i++ {
+				arg := ReadAny(L, i)
+				args = append(args, reflect.ValueOf(arg))
+			}
+
+			returned := rv.Call(args)
+
+			for _, ret := range returned {
+				PushAny(L, ret.Interface())
+			}
+
+			return len(returned)
+		})
 	default:
 		L.PushNil()
 	}

@@ -2,6 +2,7 @@ package lunatico
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/aarzilli/golua/lua"
@@ -133,31 +134,58 @@ func PushAny(L *lua.State, ival interface{}) {
 	switch rv.Kind() {
 	case reflect.Func:
 		L.PushGoFunction(func(L *lua.State) int {
-			var args []reflect.Value
-			for i := 1; !L.IsNone(i); i++ {
-				arg := ReadAny(L, i)
-				args = append(args, reflect.ValueOf(arg))
-			}
+			fnType := rv.Type()
 
-			// adjust argument quantity
-			requiredArgs := rv.Type().NumIn()  // includes a potential variadic argument
+			fnArgs := fnType.NumIn()           // includes a potential variadic argument
+			givenArgs := L.GetTop()            // args passed to function
 			variadic := rv.Type().IsVariadic() // means the last argument is ...
 
+			var numArgs int
 			if variadic {
 				// when variadic we can ignore the last argument
-				requiredArgs--
+				// or accept many of it
+				if givenArgs+1 >= fnArgs {
+					numArgs = givenArgs
+				} else {
+					numArgs = fnArgs
+				}
+			} else {
+				// function is limited to the number of fnArgs
+				numArgs = fnArgs
 			}
 
-			if requiredArgs > len(args) {
-				L.ArgError(1, "error: invalid number of arguments given.")
+			// when it's less there's nothing we can do
+			if numArgs > givenArgs {
+				L.RaiseError(fmt.Sprintf("got %d arguments, needed %d", numArgs, givenArgs))
 			}
 
-			if !variadic {
-				// passed too many arguments from Lua, let's ignore some
-				// unless the function variadic, in this case we can use them all
-				args = args[:requiredArgs]
+			args := make([]reflect.Value, numArgs)
+			for i := 0; i < numArgs; i++ {
+				arg := ReadAny(L, i+1)
+
+				var requiredType reflect.Type
+				if i >= fnArgs-1 && variadic {
+					requiredType = fnType.In(fnArgs - 1).Elem()
+				} else {
+					requiredType = fnType.In(i)
+				}
+
+				av := reflect.ValueOf(arg)
+				if !av.Type().ConvertibleTo(requiredType) {
+					L.ArgError(i+1, fmt.Sprintf("wrong argument type: got %s, wanted %s",
+						av.Kind().String(), requiredType.Kind().String()))
+				}
+
+				args[i] = av.Convert(requiredType)
 			}
 
+			defer func() {
+				// recover from panics during function run
+				if err := recover(); err != nil {
+					log.Print(err)
+					L.RaiseError(fmt.Sprintf("function panic: %s", err))
+				}
+			}()
 			returned := rv.Call(args)
 
 			for _, ret := range returned {
@@ -202,11 +230,11 @@ func PushAny(L *lua.State, ival interface{}) {
 		}
 
 		goto justpushnil
-
 	callmethod:
 		if method.Type.NumIn() == 1 /* 1 because the struct itself is an argument */ &&
 			method.Type.NumOut() == 1 &&
 			method.Type.Out(0).Kind() == reflect.String {
+
 			res := method.Func.Call([]reflect.Value{rv})
 			L.PushString(res[0].String())
 		} else {

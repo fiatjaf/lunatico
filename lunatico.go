@@ -2,7 +2,6 @@ package lunatico
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 
 	"github.com/aarzilli/golua/lua"
@@ -182,7 +181,6 @@ func PushAny(L *lua.State, ival interface{}) {
 			defer func() {
 				// recover from panics during function run
 				if err := recover(); err != nil {
-					log.Print(err)
 					L.RaiseError(fmt.Sprintf("function panic: %s", err))
 				}
 			}()
@@ -237,8 +235,7 @@ func PushAny(L *lua.State, ival interface{}) {
 
 			res := method.Func.Call([]reflect.Value{rv})
 			L.PushString(res[0].String())
-		} else {
-			goto justpushnil
+			break
 		}
 	justpushnil:
 		L.PushNil()

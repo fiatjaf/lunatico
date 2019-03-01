@@ -1,6 +1,7 @@
 package lunatico
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/aarzilli/golua/lua"
@@ -58,6 +59,14 @@ func TestFunctions(t *testing.T) {
 			}
 			return res
 		},
+		"multi": func() (string, string, string) { return "a", "b", "c" },
+		"check_one": func(one int) (int, error) {
+			if one == 1 {
+				return 1, nil
+			} else {
+				return 0, errors.New("not one")
+			}
+		},
 	})
 
 	err := L.DoString(`
@@ -65,35 +74,77 @@ func TestFunctions(t *testing.T) {
       v2 = sum({7, 8, 9})
       v3 = sum({a=7, b=8, c=9})
       v4 = sum(3, 4, {b=8}, {9})
+      f, s, t = multi()
+      v5 = {f, s, t}
+      one, err = check_one(0)
+      v6 = {one, err}
+      one, err = check_one(1)
+      v7 = {one, err}
     `)
 	if err != nil {
 		t.Errorf("Execution error: %s", err)
 	}
 
-	values := GetGlobals(L, "v1", "v2", "v3", "v4")
+	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7")
 
 	if v, ok := values["v1"].(float64); !ok {
 		t.Errorf("v1 is not a number")
 	} else if v != 144 {
-		t.Errorf("Got wrong value %f, wanted 144", v)
+		t.Errorf("got wrong value %f, wanted 144", v)
 	}
 
 	if v, ok := values["v2"].(float64); !ok {
 		t.Errorf("v2 is not a number")
 	} else if v != 24 {
-		t.Errorf("Got wrong value %f, wanted 24", v)
+		t.Errorf("got wrong value %f, wanted 24", v)
 	}
 
 	if v, ok := values["v3"].(float64); !ok {
 		t.Errorf("v3 is not a number")
 	} else if v != 24 {
-		t.Errorf("Got wrong value %f, wanted 24", v)
+		t.Errorf("got wrong value %f, wanted 24", v)
 	}
 
 	if v, ok := values["v4"].(float64); !ok {
 		t.Errorf("v4 is not a number")
 	} else if v != 24 {
-		t.Errorf("Got wrong value %f, wanted 24", v)
+		t.Errorf("got wrong value %f, wanted 24", v)
+	}
+
+	if v, ok := values["v5"].([]interface{}); !ok {
+		t.Errorf("v5 is not an array")
+	} else {
+		if v[0].(string) != "a" {
+			t.Errorf("v5.1 is %s, wanted %s", v[0].(string), "a")
+		}
+		if v[1].(string) != "b" {
+			t.Errorf("v5.2 is %s, wanted %s", v[0].(string), "b")
+		}
+		if v[2].(string) != "c" {
+			t.Errorf("v5.3 is %s, wanted %s", v[0].(string), "c")
+		}
+	}
+
+	if v, ok := values["v6"].([]interface{}); !ok {
+		t.Errorf("v6 is not an array")
+	} else {
+		if v[0].(float64) != 0 {
+			t.Errorf("v6.one should be zero, got %v", v[0].(float64))
+		}
+		if v[1].(string) == "" {
+			t.Errorf("v6.err should be a non-empty string, got %s", v[1].(string))
+		}
+	}
+
+	if v, ok := values["v7"].([]interface{}); !ok {
+		t.Errorf("v7 is not an array")
+	} else {
+		if v[0].(float64) != 1 {
+			t.Errorf("v7.one should be 1, got %v", v[0].(float64))
+		}
+		if len(v) > 1 {
+			t.Errorf("v7.err should be nothing, got %s", v[1])
+		}
 	}
 }
 

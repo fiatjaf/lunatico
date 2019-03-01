@@ -129,6 +129,11 @@ func PushSlice(L *lua.State, s []interface{}) {
 }
 
 func PushAny(L *lua.State, ival interface{}) {
+	if ival == nil {
+		L.PushNil()
+		return
+	}
+
 	rv := reflect.ValueOf(ival)
 	switch rv.Kind() {
 	case reflect.Func:
@@ -161,6 +166,7 @@ func PushAny(L *lua.State, ival interface{}) {
 			args := make([]reflect.Value, numArgs)
 			for i := 0; i < numArgs; i++ {
 				arg := ReadAny(L, i+1)
+				av := reflect.ValueOf(arg)
 
 				var requiredType reflect.Type
 				if i >= fnArgs-1 && variadic {
@@ -169,13 +175,23 @@ func PushAny(L *lua.State, ival interface{}) {
 					requiredType = fnType.In(i)
 				}
 
-				av := reflect.ValueOf(arg)
-				if !av.Type().ConvertibleTo(requiredType) {
-					L.ArgError(i+1, fmt.Sprintf("wrong argument type: got %s, wanted %s",
-						av.Kind().String(), requiredType.Kind().String()))
+				if av.IsValid() {
+					if !av.Type().ConvertibleTo(requiredType) {
+						L.ArgError(i+1, fmt.Sprintf("wrong argument type: got %s, wanted %s",
+							av.Kind().String(), requiredType.Kind().String()))
+					}
+
+					av = av.Convert(requiredType)
+				} else {
+					av = reflect.New(requiredType).Elem()
+
+					if !av.Type().AssignableTo(requiredType) {
+						L.ArgError(i+1, fmt.Sprintf("wrong argument type: got '%s', wanted %s",
+							arg, requiredType.Kind().String()))
+					}
 				}
 
-				args[i] = av.Convert(requiredType)
+				args[i] = av
 			}
 
 			defer func() {

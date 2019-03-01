@@ -1,41 +1,11 @@
-package main
+package lunatico
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 
 	"github.com/aarzilli/golua/lua"
 )
-
-func main() {
-	L := lua.NewState()
-	L.OpenLibs()
-
-	var value interface{} = map[string]interface{}{
-		"x": map[string]interface{}{
-			"y": 2,
-		},
-	}
-
-	SetGlobals(L, map[string]interface{}{
-		"value":        value,
-		"getvalueback": func(v interface{}) { value = v },
-	})
-
-	log.Print(L.DoString(`
-value.x.y = 3
-local z = value.x.z or {}
-value.x.z = z
-z.m = 'alskndalsdn'
-local m = value.m or {}
-value.m = m
-m.z = {1,2,3}
-getvalueback(value)
-    `))
-
-	fmt.Println(value)
-}
 
 // utils
 func SetGlobals(L *lua.State, globals map[string]interface{}) {
@@ -43,6 +13,17 @@ func SetGlobals(L *lua.State, globals map[string]interface{}) {
 		PushAny(L, v)
 		L.SetGlobal(k)
 	}
+}
+
+func GetGlobals(L *lua.State, names ...string) map[string]interface{} {
+	globals := make(map[string]interface{})
+	for _, name := range names {
+		L.GetGlobal(name)
+		v := ReadAny(L, -1)
+		globals[name] = v
+		L.Pop(1)
+	}
+	return globals
 }
 
 func GetFullStack(L *lua.State) []interface{} {
@@ -150,6 +131,41 @@ func PushSlice(L *lua.State, s []interface{}) {
 func PushAny(L *lua.State, ival interface{}) {
 	rv := reflect.ValueOf(ival)
 	switch rv.Kind() {
+	case reflect.Func:
+		L.PushGoFunction(func(L *lua.State) int {
+			var args []reflect.Value
+			for i := 1; !L.IsNone(i); i++ {
+				arg := ReadAny(L, i)
+				args = append(args, reflect.ValueOf(arg))
+			}
+
+			// adjust argument quantity
+			requiredArgs := rv.Type().NumIn()  // includes a potential variadic argument
+			variadic := rv.Type().IsVariadic() // means the last argument is ...
+
+			if variadic {
+				// when variadic we can ignore the last argument
+				requiredArgs--
+			}
+
+			if requiredArgs > len(args) {
+				L.ArgError(1, "error: invalid number of arguments given.")
+			}
+
+			if !variadic {
+				// passed too many arguments from Lua, let's ignore some
+				// unless the function variadic, in this case we can use them all
+				args = args[:requiredArgs]
+			}
+
+			returned := rv.Call(args)
+
+			for _, ret := range returned {
+				PushAny(L, ret.Interface())
+			}
+
+			return len(returned)
+		})
 	case reflect.String:
 		L.PushString(rv.String())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -174,22 +190,30 @@ func PushAny(L *lua.State, ival interface{}) {
 			m[fmt.Sprint(key)] = rv.MapIndex(key).Interface()
 		}
 		PushMap(L, m)
-	case reflect.Func:
-		L.PushGoFunction(func(L *lua.State) int {
-			var args []reflect.Value
-			for i := 1; !L.IsNone(i); i++ {
-				arg := ReadAny(L, i)
-				args = append(args, reflect.ValueOf(arg))
-			}
+	case reflect.Ptr, reflect.Struct:
+		// if it has an Error() or String() method, call these instead of pushing nil.
+		method, ok := rv.Type().MethodByName("Error")
+		if ok {
+			goto callmethod
+		}
+		method, ok = rv.Type().MethodByName("String")
+		if ok {
+			goto callmethod
+		}
 
-			returned := rv.Call(args)
+		goto justpushnil
 
-			for _, ret := range returned {
-				PushAny(L, ret.Interface())
-			}
-
-			return len(returned)
-		})
+	callmethod:
+		if method.Type.NumIn() == 1 /* 1 because the struct itself is an argument */ &&
+			method.Type.NumOut() == 1 &&
+			method.Type.Out(0).Kind() == reflect.String {
+			res := method.Func.Call([]reflect.Value{rv})
+			L.PushString(res[0].String())
+		} else {
+			goto justpushnil
+		}
+	justpushnil:
+		L.PushNil()
 	default:
 		L.PushNil()
 	}

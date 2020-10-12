@@ -1,3 +1,5 @@
+github.com/Azure/golua v0.0.0-20190201163710-5105380e8196 h1:MsDn6eUTEWKjZXDV1oz0NLuj8ikiBnjVhq08MFzaiEI=
+github.com/Azure/golua v0.0.0-20190201163710-5105380e8196/go.mod h1:Qtqr8Y+5vWnmz/4RWerkYOJfugBu9ViPCFC8yvvFL5I=
 github.com/aarzilli/golua v0.0.0-20190714183732-fc27908ace94 h1:BdnmhcIVWErdfypFo/f9Ai2KoC2BpkLpGSyv0aquYuI=
 github.com/aarzilli/golua v0.0.0-20190714183732-fc27908ace94/go.mod h1:SV7PRru1lATaCdZXNt5AZHw0uKiN1BoYBHrcctQ1Ouc=
 github.com/aarzilli/golua v0.0.0-20200214131735-421e0de0aa20 h1:bvuZt14rsLws65bIf85LLfA1WHrsy+WZtP3mJZ4iw0g=

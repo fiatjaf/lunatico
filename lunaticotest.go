@@ -3,15 +3,15 @@ package lunatico
 import (
 	"errors"
 	"testing"
-
-	"github.com/aarzilli/golua/lua"
 )
 
-func TestBasic(t *testing.T) {
-	L := lua.NewState()
-	defer L.Close()
-	L.OpenLibs()
+type LuaStateForTest interface {
+	LuaState
 
+	DoString(str string) error
+}
+
+func RunTestBasic(t *testing.T, L LuaStateForTest) {
 	SetGlobals(L, map[string]interface{}{
 		"fromgo": 10,
 	})
@@ -31,11 +31,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestFunctions(t *testing.T) {
-	L := lua.NewState()
-	defer L.Close()
-	L.OpenLibs()
-
+func RunTestFunctions(t *testing.T, L LuaStateForTest) {
 	SetGlobals(L, map[string]interface{}{
 		"multiply": func(v int, times int) int { return v * times },
 		"sum": func(xx ...interface{}) (res uint64) {
@@ -148,11 +144,7 @@ func TestFunctions(t *testing.T) {
 	}
 }
 
-func TestSomeValues(t *testing.T) {
-	L := lua.NewState()
-	defer L.Close()
-	L.OpenLibs()
-
+func RunTestSomeValues(t *testing.T, L LuaStateForTest) {
 	SetGlobals(L, map[string]interface{}{
 		"x": map[string]interface{}{
 			"k": []float64{1.123, 8, 999999999999},

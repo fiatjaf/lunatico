@@ -3,19 +3,56 @@ package lunatico
 import (
 	"fmt"
 	"reflect"
+)
 
-	"github.com/aarzilli/golua/lua"
+type LuaState interface {
+	SetGlobal(name string)
+	GetGlobal(name string)
+	Pop(n int)
+	GetTop() int
+	Type(index int) int
+	ToBoolean(index int) bool
+	ToString(index int) string
+	ToNumber(index int) float64
+	ToInteger(index int) int
+	ObjLen(index int) uint
+	Next(index int) bool
+	CreateTable(narr int, nrec int)
+	RawSet(index int)
+	RawSeti(index int, n int)
+	PushGoFunction(f func(LuaState) int)
+	RaiseError(msg string)
+	ArgError(narg int, extramsg string) int
+	PushString(str string)
+	PushNumber(n float64)
+	PushBoolean(b bool)
+	PushNil()
+}
+
+// From lua.h.
+const (
+	LUA_TNONE          = (-1)
+	LUA_TNIL           = 0
+	LUA_TBOOLEAN       = 1
+	LUA_TLIGHTUSERDATA = 2
+	LUA_TNUMBER        = 3
+	LUA_TSTRING        = 4
+	LUA_TTABLE         = 5
+	LUA_TFUNCTION      = 6
+	LUA_TUSERDATA      = 7
+	LUA_TTHREAD        = 8
+	LUA_NUMTAGS        = 9
 )
 
 // utils
-func SetGlobals(L *lua.State, globals map[string]interface{}) {
+func SetGlobals(L LuaState, globals map[string]interface{}) {
 	for k, v := range globals {
 		PushAny(L, v)
 		L.SetGlobal(k)
 	}
 }
 
-func GetGlobals(L *lua.State, names ...string) map[string]interface{} {
+func GetGlobals(L LuaState, names ...string) map[string]interface{} {
 	globals := make(map[string]interface{})
 	for _, name := range names {
 		L.GetGlobal(name)
@@ -26,7 +63,7 @@ func GetGlobals(L *lua.State, names ...string) map[string]interface{} {
 	return globals
 }
 
-func GetFullStack(L *lua.State) []interface{} {
+func GetFullStack(L LuaState) []interface{} {
 	tip := L.GetTop()
 	values := make([]interface{}, tip)
 	for i := 1; i <= tip; i++ {
@@ -37,37 +74,37 @@ func GetFullStack(L *lua.State) []interface{} {
 }
 
 // read stuff
-func ReadAny(L *lua.State, pos int) interface{} {
+func ReadAny(L LuaState, pos int) interface{} {
 	switch L.Type(pos) {
-	case lua.LUA_TNIL:
+	case LUA_TNIL:
 		return nil
-	case lua.LUA_TNUMBER:
+	case LUA_TNUMBER:
 		return L.ToNumber(pos)
-	case lua.LUA_TBOOLEAN:
+	case LUA_TBOOLEAN:
 		return L.ToBoolean(pos)
-	case lua.LUA_TSTRING:
+	case LUA_TSTRING:
 		return L.ToString(pos)
-	case lua.LUA_TTABLE:
+	case LUA_TTABLE:
 		return ReadTable(L, pos)
-	case lua.LUA_TFUNCTION:
+	case LUA_TFUNCTION:
 		return nil
 	}
 	return nil
 }
 
-func ReadString(L *lua.State, pos int) (v string) {
+func ReadString(L LuaState, pos int) (v string) {
 	switch L.Type(pos) {
-	case lua.LUA_TNUMBER:
+	case LUA_TNUMBER:
 		return fmt.Sprint(L.ToNumber(pos))
-	case lua.LUA_TBOOLEAN:
+	case LUA_TBOOLEAN:
 		return fmt.Sprint(L.ToBoolean(pos))
-	case lua.LUA_TSTRING:
+	case LUA_TSTRING:
 		return L.ToString(pos)
 	}
 	return ""
 }
 
-func ReadTable(L *lua.State, pos int) interface{} {
+func ReadTable(L LuaState, pos int) interface{} {
 	if pos < 0 {
 		pos = L.GetTop() + 1 + pos
 	}
@@ -85,7 +122,7 @@ func ReadTable(L *lua.State, pos int) interface{} {
 
 	L.PushNil()
 
-	for L.Next(pos) != 0 {
+	for L.Next(pos) {
 		val := ReadAny(L, -1)
 		L.Pop(1)
 
@@ -111,7 +148,7 @@ func ReadTable(L *lua.State, pos int) interface{} {
 }
 
 // push stuff
-func PushMap(L *lua.State, m map[string]interface{}) {
+func PushMap(L LuaState, m map[string]interface{}) {
 	L.CreateTable(0, len(m))
 	for k, v := range m {
 		PushAny(L, k)
@@ -120,7 +157,7 @@ func PushMap(L *lua.State, m map[string]interface{}) {
 	}
 }
 
-func PushSlice(L *lua.State, s []interface{}) {
+func PushSlice(L LuaState, s []interface{}) {
 	L.CreateTable(len(s), 0)
 	for i, v := range s {
 		PushAny(L, v)
@@ -128,7 +165,7 @@ func PushSlice(L *lua.State, s []interface{}) {
 	}
 }
 
-func PushAny(L *lua.State, ival interface{}) {
+func PushAny(L LuaState, ival interface{}) {
 	if ival == nil {
 		L.PushNil()
 		return
@@ -137,7 +174,7 @@ func PushAny(L *lua.State, ival interface{}) {
 	rv := reflect.ValueOf(ival)
 	switch rv.Kind() {
 	case reflect.Func:
-		L.PushGoFunction(func(L *lua.State) int {
+		L.PushGoFunction(func(L LuaState) int {
 			fnType := rv.Type()
 
 			fnArgs := fnType.NumIn()           // includes a potential variadic argument

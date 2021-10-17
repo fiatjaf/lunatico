@@ -50,7 +50,7 @@ func ReadAny(L *lua.State, pos int) interface{} {
 	case lua.LUA_TTABLE:
 		return ReadTable(L, pos)
 	case lua.LUA_TFUNCTION:
-		return nil
+		return true
 	}
 	return nil
 }

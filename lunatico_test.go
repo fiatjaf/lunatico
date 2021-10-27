@@ -80,12 +80,13 @@ func TestFunctions(t *testing.T) {
       v6 = {one, err}
       one, err = check_one(1)
       v7 = {one, err}
+      v8 = function () return 'x' end
     `)
 	if err != nil {
 		t.Errorf("Execution error: %s", err)
 	}
 
-	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7")
+	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8")
 
 	if v, ok := values["v1"].(float64); !ok {
 		t.Errorf("v1 is not a number")
@@ -145,6 +146,10 @@ func TestFunctions(t *testing.T) {
 		if len(v) > 1 {
 			t.Errorf("v7.err should be nothing, got %s", v[1])
 		}
+	}
+
+	if _, ok := values["v8"].(*LuaFunction); !ok {
+		t.Errorf("v8 is not a *LuaFunction")
 	}
 }
 

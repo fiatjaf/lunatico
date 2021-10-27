@@ -7,6 +7,9 @@ import (
 	"github.com/aarzilli/golua/lua"
 )
 
+// used to be returned when we find a lua function
+type LuaFunction struct{}
+
 // utils
 func SetGlobals(L *lua.State, globals map[string]interface{}) {
 	for k, v := range globals {
@@ -50,7 +53,7 @@ func ReadAny(L *lua.State, pos int) interface{} {
 	case lua.LUA_TTABLE:
 		return ReadTable(L, pos)
 	case lua.LUA_TFUNCTION:
-		return true
+		return &LuaFunction{}
 	}
 	return nil
 }

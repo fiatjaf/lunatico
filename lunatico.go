@@ -1,6 +1,7 @@
 package lunatico
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -244,6 +245,14 @@ func PushAny(L *lua.State, ival interface{}) {
 		method, ok = rv.Type().MethodByName("String")
 		if ok {
 			goto callmethod
+		}
+
+		// try to convert the struct into an object using json
+		if valuej, err := json.Marshal(rv.Interface()); err == nil {
+			var value interface{}
+			json.Unmarshal(valuej, &value)
+			PushAny(L, value)
+			break
 		}
 
 		goto justpushnil

@@ -1,6 +1,7 @@
 package lunatico
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -237,6 +238,10 @@ func PushAny(L *lua.State, ival interface{}) {
 		}
 		PushMap(L, m)
 	case reflect.Ptr, reflect.Struct:
+		out := &bytes.Buffer{}
+		enc := json.NewEncoder(out)
+		enc.SetEscapeHTML(false)
+
 		// if it has an Error() or String() method, call these instead of pushing nil.
 		method, ok := rv.Type().MethodByName("Error")
 		if ok {
@@ -248,9 +253,9 @@ func PushAny(L *lua.State, ival interface{}) {
 		}
 
 		// try to convert the struct into an object using json
-		if valuej, err := json.Marshal(rv.Interface()); err == nil {
+		if err := enc.Encode(rv.Interface()); err == nil {
 			var value interface{}
-			json.Unmarshal(valuej, &value)
+			json.Unmarshal(out.Bytes(), &value)
 			PushAny(L, value)
 			break
 		}

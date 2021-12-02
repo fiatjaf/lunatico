@@ -18,16 +18,24 @@ func TestBasic(t *testing.T) {
 
 	err := L.DoString(`
       togo = fromgo * 3
+      emptyobject = {}
+      emptyarray = {__emptyarray = 'yuhu'}
     `)
 	if err != nil {
 		t.Errorf("Execution error: %s", err)
 	}
 
-	values := GetGlobals(L, "togo")
+	values := GetGlobals(L, "togo", "emptyobject", "emptyarray")
 	if v, ok := values["togo"].(float64); !ok {
 		t.Errorf("togo is not a number")
 	} else if v != 30 {
 		t.Errorf("Got wrong value %f, wanted 30", v)
+	}
+	if _, ok := values["emptyobject"].(map[string]interface{}); !ok {
+		t.Errorf("emptyobject is not an object")
+	}
+	if _, ok := values["emptyarray"].([]interface{}); !ok {
+		t.Errorf("emptyarray is not an array")
 	}
 }
 

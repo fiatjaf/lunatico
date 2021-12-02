@@ -111,6 +111,11 @@ func ReadTable(L *lua.State, pos int) interface{} {
 	if isArray {
 		return slice
 	} else {
+		// special case for forcing an empty array
+		if _, ok := object["__emptyarray"]; len(object) == 1 && ok {
+			return make([]interface{}, 0)
+		}
+
 		return object
 	}
 }

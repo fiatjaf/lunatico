@@ -75,6 +75,7 @@ func TestFunctions(t *testing.T) {
 				return 0, errors.New("not one")
 			}
 		},
+		"returns_nil": func() map[string]interface{} { return nil },
 	})
 
 	err := L.DoString(`
@@ -89,12 +90,14 @@ func TestFunctions(t *testing.T) {
       one, err = check_one(1)
       v7 = {one, err}
       v8 = function () return 'x' end
+      v9 = not returns_nil()
+      v10 = returns_nil()
     `)
 	if err != nil {
 		t.Errorf("Execution error: %s", err)
 	}
 
-	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8")
+	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10")
 
 	if v, ok := values["v1"].(float64); !ok {
 		t.Errorf("v1 is not a number")
@@ -158,6 +161,14 @@ func TestFunctions(t *testing.T) {
 
 	if _, ok := values["v8"].(*LuaFunction); !ok {
 		t.Errorf("v8 is not a *LuaFunction")
+	}
+
+	if values["v9"] != true {
+		t.Errorf("v9 should be true, but it's %v", values["v9"])
+	}
+
+	if values["v10"] != nil {
+		t.Errorf("v10 should be nil, but it's %v", values["v10"])
 	}
 }
 

@@ -213,7 +213,12 @@ func PushAny(L *lua.State, ival interface{}) {
 			returned := rv.Call(args)
 
 			for _, ret := range returned {
-				PushAny(L, ret.Interface())
+				kind := ret.Kind()
+				if kind == reflect.Slice || kind == reflect.Map || kind == reflect.Interface && ret.IsNil() {
+					L.PushNil()
+				} else {
+					PushAny(L, ret.Interface())
+				}
 			}
 
 			return len(returned)

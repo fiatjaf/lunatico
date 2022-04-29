@@ -76,6 +76,7 @@ func TestFunctions(t *testing.T) {
 			}
 		},
 		"returns_nil": func() map[string]interface{} { return nil },
+		"returns_map": func() map[string]int { return map[string]int{"a": 2} },
 	})
 
 	err := L.DoString(`
@@ -92,12 +93,15 @@ func TestFunctions(t *testing.T) {
       v8 = function () return 'x' end
       v9 = not returns_nil()
       v10 = returns_nil()
+      v11 = returns_map()
     `)
 	if err != nil {
 		t.Errorf("Execution error: %s", err)
 	}
 
-	values := GetGlobals(L, "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10")
+	values := GetGlobals(L,
+		"v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+		"v11")
 
 	if v, ok := values["v1"].(float64); !ok {
 		t.Errorf("v1 is not a number")
@@ -169,6 +173,12 @@ func TestFunctions(t *testing.T) {
 
 	if values["v10"] != nil {
 		t.Errorf("v10 should be nil, but it's %v", values["v10"])
+	}
+
+	if m, ok := values["v11"].(map[string]interface{}); !ok {
+		t.Errorf("v11 should be a map, but it's %v", values["v11"])
+	} else if m["a"] != float64(2) {
+		t.Errorf("v11[\"a\"] should be a 2, but it's %v", m["a"])
 	}
 }
 
